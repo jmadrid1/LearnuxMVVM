@@ -1,0 +1,128 @@
+package com.example.learnuxmvvm.ui
+
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import androidx.activity.OnBackPressedCallback
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.learnuxmvvm.R
+import com.example.learnuxmvvm.adapter.VideoAdapter
+import com.example.learnuxmvvm.data.Status
+import com.example.learnuxmvvm.databinding.FragmentVideosBinding
+import com.example.learnuxmvvm.utils.ConnectionLiveData
+import dagger.hilt.android.AndroidEntryPoint
+
+@AndroidEntryPoint
+class VideosFragment : Fragment(R.layout.fragment_videos) {
+
+    private var _binding: FragmentVideosBinding? = null
+    private val binding get() = _binding!!
+
+    private val viewModel : VideoViewModel by viewModels()
+    private lateinit var videoAdapter: VideoAdapter
+
+    lateinit var connectionLiveData : ConnectionLiveData
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        _binding = FragmentVideosBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        onBackButtonPress()
+        setupRecyclerView()
+        setupObservers()
+
+        videoAdapter.setOnItemClickListener {
+            val id : String = it.id
+            val action = VideosFragmentDirections.actionVideosFragmentToPlayBackFragment(id)
+            findNavController().navigate(action)
+        }
+    }
+
+    private fun setupRecyclerView(){
+        videoAdapter = VideoAdapter()
+        binding.fragmentVideosRecyclerview.apply{
+            adapter = videoAdapter
+            layoutManager = LinearLayoutManager(context)
+        }
+        videoAdapter.notifyDataSetChanged()
+    }
+
+    private fun setupObservers(){
+        connectionLiveData = ConnectionLiveData(requireContext())
+        connectionLiveData.observe(viewLifecycleOwner, {
+            if (it){
+                hideProgressBar()
+                showList()
+                viewModel.getVideos()
+            }else{
+                hideList()
+                hideProgressBar()
+            }
+        })
+
+        viewModel.videoList.observe(viewLifecycleOwner) { resource ->
+            when(resource.status) {
+                Status.SUCCESS -> {
+                    hideProgressBar()
+                    resource.data?.let { videos ->
+                        videoAdapter.differ.submitList(videos)
+                        showList()
+                    }
+                }
+                Status.ERROR -> {
+                    hideList()
+                }
+                Status.LOADING -> {
+                    showProgressBar()
+                }
+            }
+        }
+    }
+
+    private fun showList(){
+        binding.fragmentVideosRecyclerview.visibility = View.VISIBLE
+        binding.fragmentVideosImageviewEmptyList.visibility = View.GONE
+        binding.fragmentVideosTextviewEmptyList.visibility = View.GONE
+    }
+
+    private fun hideList(){
+        binding.fragmentVideosRecyclerview.visibility = View.GONE
+        binding.fragmentVideosImageviewEmptyList.visibility = View.VISIBLE
+        binding.fragmentVideosTextviewEmptyList.visibility = View.VISIBLE
+    }
+
+    private fun showProgressBar(){
+        binding.fragmentVideosProgressbar.visibility = View.VISIBLE
+        showList()
+    }
+
+    private fun hideProgressBar(){
+        binding.fragmentVideosProgressbar.visibility = View.GONE
+    }
+
+    private fun onBackButtonPress(){
+        val callback = object : OnBackPressedCallback(true){
+            override fun handleOnBackPressed() {
+                activity!!.finish()
+            }
+        }
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, callback)
+    }
+
+}
