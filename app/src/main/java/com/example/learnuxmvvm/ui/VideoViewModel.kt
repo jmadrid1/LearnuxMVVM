@@ -3,56 +3,49 @@ package com.example.learnuxmvvm.ui
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.learnuxmvvm.R
 import com.example.learnuxmvvm.data.Result
+import com.example.learnuxmvvm.data.Status
+import com.example.learnuxmvvm.data.repository.FirebaseVideoRepo
 import com.example.learnuxmvvm.model.Video
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.ValueEventListener
-import com.google.firebase.database.ktx.database
-import com.google.firebase.ktx.Firebase
+import com.google.android.youtube.player.YouTubePlayer
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.collect
 import javax.inject.Inject
 
 @HiltViewModel
-class VideoViewModel @Inject constructor(): ViewModel() {
-
-    companion object {
-        const val firebase_videos_key = "videos"
-    }
+class VideoViewModel @Inject constructor(
+    private val _firebase: FirebaseVideoRepo): ViewModel() {
 
     private val _videoList = MutableLiveData<Result<List<Video>>>()
     val videoList: LiveData<Result<List<Video>>> = _videoList
 
-    private lateinit var fireReference : DatabaseReference
-
-    fun getVideos(){
-        viewModelScope.launch {
+    @ExperimentalCoroutinesApi
+    suspend fun getVideos(){
+        _firebase.getVideos().collect {
+            val videoList = mutableListOf<Video>()
             _videoList.postValue(Result.loading(null))
-            val queryList = mutableListOf<Video>()
-            fireReference = Firebase.database.getReference(firebase_videos_key)
-            val postListener = object : ValueEventListener {
-                override fun onDataChange(dataSnapshot: DataSnapshot) {
-                    if(dataSnapshot.exists()){
-                        for (e in dataSnapshot.children){
-                            val video = e.getValue(Video::class.java)
-                            if(video != null){
-                                queryList.add(video)
-                            }
+            when(it.status) {
+                Status.SUCCESS -> {
+                    it.data?.let { items ->
+                        for(e in items){
+                            videoList.add(e)
                         }
-                        _videoList.postValue(Result.success(queryList))
+                        _videoList.postValue(Result.success(videoList))
                     }
                 }
-
-                override fun onCancelled(databaseError: DatabaseError) {
-                    _videoList.postValue(Result.error("Failed to get videos. Please try again.", queryList))
-                }
+                Status.ERROR -> {  _videoList.postValue(Result.error("Failed to grab items from Firebase", emptyList())) }
             }
-            fireReference.addValueEventListener(postListener)
         }
+    }
+
+    fun pauseVideo(mPlayer: YouTubePlayer){
+        mPlayer.pause()
+    }
+
+    fun playVideo(id: String, mPlayer: YouTubePlayer?){
+        mPlayer!!.loadVideo(id)
+        mPlayer.play()
     }
 
 }
