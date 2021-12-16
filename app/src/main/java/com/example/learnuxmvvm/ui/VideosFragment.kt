@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.learnuxmvvm.R
@@ -15,6 +16,7 @@ import com.example.learnuxmvvm.data.Status
 import com.example.learnuxmvvm.databinding.FragmentVideosBinding
 import com.example.learnuxmvvm.utils.ConnectionLiveData
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class VideosFragment : Fragment(R.layout.fragment_videos) {
@@ -69,18 +71,20 @@ class VideosFragment : Fragment(R.layout.fragment_videos) {
             if (it){
                 hideProgressBar()
                 showList()
-                viewModel.getVideos()
+                viewLifecycleOwner.lifecycleScope.launch {
+                    viewModel.getVideos()
+                }
             }else{
                 hideList()
                 hideProgressBar()
             }
         })
 
-        viewModel.videoList.observe(viewLifecycleOwner) { resource ->
-            when(resource.status) {
+        viewModel.videoList.observe(viewLifecycleOwner) { result ->
+            when(result.status) {
                 Status.SUCCESS -> {
                     hideProgressBar()
-                    resource.data?.let { videos ->
+                    result.data?.let { videos ->
                         videoAdapter.differ.submitList(videos)
                         showList()
                     }
@@ -93,6 +97,7 @@ class VideosFragment : Fragment(R.layout.fragment_videos) {
                 }
             }
         }
+
     }
 
     private fun showList(){
