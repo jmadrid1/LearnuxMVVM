@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.example.learnuxmvvm.R
@@ -27,6 +28,8 @@ class PlaybackFragment : Fragment(R.layout.fragment_playback), YouTubePlayer.OnI
 
     private val args: PlaybackFragmentArgs by navArgs()
     private var mPlayer: YouTubePlayer? = null
+
+    private val viewModel : VideoViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -58,7 +61,9 @@ class PlaybackFragment : Fragment(R.layout.fragment_playback), YouTubePlayer.OnI
     private fun onBackButtonPress(){
         val callback = object : OnBackPressedCallback(true){
             override fun handleOnBackPressed() {
-                pauseVideo()
+                if (mPlayer != null) {
+                    viewModel.pauseVideo(mPlayer!!)
+                }
                 findNavController().popBackStack()
             }
         }
@@ -75,7 +80,8 @@ class PlaybackFragment : Fragment(R.layout.fragment_playback), YouTubePlayer.OnI
         mPlayer!!.setShowFullscreenButton(false)
 
         if(!wasRestored) {
-            playVideo()
+            val id : String = args.videoID
+            viewModel.playVideo(id, mPlayer)
         }
     }
 
@@ -86,19 +92,6 @@ class PlaybackFragment : Fragment(R.layout.fragment_playback), YouTubePlayer.OnI
         if (!youTubeInitializationResult!!.isUserRecoverableError) {
             youTubeInitializationResult.getErrorDialog(activity, 1).show()
         }
-    }
-
-    fun pauseVideo(){
-        if (mPlayer != null) {
-            mPlayer!!.pause()
-        }
-    }
-
-    private fun playVideo(){
-        val id = args.videoID
-
-        mPlayer!!.loadVideo(id)
-        mPlayer!!.play()
     }
 
 }
